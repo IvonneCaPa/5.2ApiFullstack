@@ -4,35 +4,30 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
-// Componente para proteger rutas
-const PrivateRoute = ({ children }) => {
+const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   
   if (loading) return <div>Cargando...</div>;
-  
   return user ? children : <Navigate to="/login" />;
 };
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <div className="App">
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route 
-              path="/dashboard" 
-              element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              } 
-            />
-            <Route path="/" element={<Navigate to="/login" />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
         </div>
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 
