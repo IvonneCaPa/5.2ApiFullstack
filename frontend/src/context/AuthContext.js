@@ -1,100 +1,147 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authService } from '../services/auth';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authService } from '../services';
 
 const AuthContext = createContext();
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth debe ser usado dentro de AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const login = async (email, password) => {
-    console.log('🚀 Función login ejecutada en AuthContext');
-    
+  // Función para obtener el usuario actual
+  const fetchCurrentUser = async () => {
     try {
-      // Llamar al servicio de autenticación
-      const tokenData = await authService.login(email, password);
-      console.log('📦 Token data recibido:', tokenData);
+      console.log('🔄 AuthContext: Obteniendo usuario actual...');
+      const response = await authService.getCurrentUser();
+      console.log('✅ AuthContext: Respuesta del usuario:', response);
       
-      // Verificar que tenemos el access_token
-      if (!tokenData.access_token) {
-        console.error('❌ No se recibió access_token en la respuesta');
+      // Manejar diferentes estructuras de respuesta
+      let userData = null;
+      if (response.user) {
+        userData = response.user;
+      } else if (response.data) {
+        userData = response.data;
+      } else if (response.id) {
+        userData = response;
+      }
+      
+      if (userData) {
+        setUser(userData);
+        console.log('✅ AuthContext: Usuario establecido:', userData);
+      } else {
+        console.warn('⚠️ AuthContext: No se pudo extraer datos del usuario');
+        setUser(null);
+      }
+    } catch (err) {
+      console.error('❌ AuthContext: Error obteniendo usuario:', err);
+      setUser(null);
+      // Si el error es 401, limpiar el token
+      if (err.response?.status === 401) {
+        localStorage.removeItem('access_token');
+      }
+    }
+  };
+
+  // Verificar si hay token al cargar la aplicación
+  useEffect(() => {
+    const initAuth = async () => {
+      console.log('🚀 AuthContext: Inicializando autenticación...');
+      const token = localStorage.getItem('access_token');
+      
+      if (token) {
+        console.log('🔑 AuthContext: Token encontrado, obteniendo usuario...');
+        await fetchCurrentUser();
+      } else {
+        console.log('🔑 AuthContext: No hay token almacenado');
+      }
+      
+      setLoading(false);
+    };
+
+    initAuth();
+  }, []);
+
+  // Función de login
+  const login = async (email, password) => {
+    try {
+      console.log('🔄 AuthContext: Iniciando login...');
+      setError(null);
+      
+      const response = await authService.login(email, password);
+      console.log('✅ AuthContext: Respuesta de login:', response);
+      
+      // Buscar el token en diferentes posibles ubicaciones
+      let token = null;
+      if (response.access_token) {
+        token = response.access_token;
+      } else if (response.token) {
+        token = response.token;
+      } else if (response.data?.access_token) {
+        token = response.data.access_token;
+      } else if (response.data?.token) {
+        token = response.data.token;
+      }
+      
+      if (token) {
+        console.log('🔑 AuthContext: Token recibido, guardando...');
+        localStorage.setItem('access_token', token);
+        
+        // Obtener datos del usuario después del login
+        await fetchCurrentUser();
+        
+        return { success: true };
+      } else {
+        console.error('❌ AuthContext: No se encontró token en la respuesta');
         return { success: false, error: 'No se recibió token de acceso' };
       }
       
-      // Guardar token en localStorage
-      console.log('💾 Guardando token en localStorage...');
-      localStorage.setItem('access_token', tokenData.access_token);
-      
-      // Verificar que se guardó correctamente
-      const savedToken = localStorage.getItem('access_token');
-      console.log('✅ Token guardado:', savedToken ? 'SÍ' : 'NO');
-      
-      // Obtener datos del usuario
-      console.log('👤 Obteniendo datos del usuario...');
-      const userData = await authService.getCurrentUser();
-      
-      console.log('👨‍💻 Estableciendo usuario en contexto:', userData);
-      setUser(userData);
-      
-      return { success: true };
-      
-    } catch (error) {
-      console.error('💥 Error completo en login:', error);
-      
-      let errorMessage = 'Error desconocido';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error_description) {
-        errorMessage = error.response.data.error_description;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      console.error('📝 Mensaje de error final:', errorMessage);
+    } catch (err) {
+      console.error('❌ AuthContext: Error en login:', err);
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          err.message || 
+                          'Error desconocido';
+      setError(errorMessage);
       return { success: false, error: errorMessage };
     }
   };
 
+  // Función de logout
   const logout = () => {
-    console.log('🚪 Logout ejecutado en AuthContext');
+    console.log('🚪 AuthContext: Cerrando sesión...');
     authService.logout();
     setUser(null);
+    setError(null);
   };
 
-  useEffect(() => {
-    console.log('🔄 AuthContext useEffect ejecutado');
-    const token = localStorage.getItem('access_token');
-    console.log('🎫 Token existente:', token ? 'Encontrado' : 'No encontrado');
-    
-    if (token) {
-      console.log('🔍 Verificando token existente...');
-      authService.getCurrentUser()
-        .then((userData) => {
-          console.log('✅ Token válido, usuario cargado:', userData);
-          setUser(userData);
-        })
-        .catch((error) => {
-          console.warn('⚠️ Token inválido, eliminando:', error.response?.status);
-          localStorage.removeItem('access_token');
-        })
-        .finally(() => {
-          console.log('🏁 Carga inicial completada');
-          setLoading(false);
-        });
-    } else {
-      console.log('🏁 No hay token, carga completada');
-      setLoading(false);
+  // Función para refrescar el usuario
+  const refreshUser = async () => {
+    if (localStorage.getItem('access_token')) {
+      await fetchCurrentUser();
     }
-  }, []);
+  };
 
   const value = {
     user,
+    loading,
+    error,
     login,
     logout,
-    loading,
+    refreshUser,
+    isAuthenticated: !!user
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };

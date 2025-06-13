@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import TestUsers from '../components/TestUsers';
+import UserCrudTest from '../components/UserCrudTest';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -30,7 +30,7 @@ const Dashboard = () => {
           Cerrar Sesión
         </button>
       </div>
-      <TestUsers />      
+      <UserCrudTest />      
       <div className="dashboard-content">
         <p className="welcome-message">
           Bienvenido, {user.name || 'Usuario'}
