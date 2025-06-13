@@ -135,4 +135,30 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+    public function store(\Illuminate\Http\Request $request)
+    {
+        try {
+            $validatedData = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:6',
+                'role' => 'required|string'
+            ]);
+
+            $validatedData['password'] = \Hash::make($validatedData['password']);
+
+            $user = \App\Models\User::create($validatedData);
+
+            return response()->json([
+                'message' => 'Usuario creado correctamente',
+                'user' => new \App\Http\Resources\UserResource($user)
+            ], 201);
+
+        } catch (\Throwable $th) {
+            return response([
+                'error'=>$th->getMessage()
+            ], 500);
+        }
+    }
 }

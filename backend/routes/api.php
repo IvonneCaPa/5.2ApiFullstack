@@ -40,4 +40,5 @@
         Route::delete('photos/{photo}', [PhotoController::class, 'destroy'])->name('api.photos.delete');
         Route::put('users/{user}', [UserController::class, 'update'])->name('api.users.update');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('api.users.delete');
+        Route::post('users', [UserController::class, 'store'])->name('api.users.store');
     });

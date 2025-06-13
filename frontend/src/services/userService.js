@@ -24,12 +24,7 @@ export const userService = {
   // Crear nuevo usuario
   createUser: async (userData) => {
     try {
-      // Adaptar para el endpoint de registro
-      const payload = {
-        ...userData,
-        password_confirmation: userData.password
-      };
-      const response = await api.post('/auths/register', payload);
+      const response = await api.post('/users', userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
